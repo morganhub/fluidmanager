@@ -55,7 +55,6 @@ async def task_callback(
     msg = (str(ts) + ".").encode("utf-8") + raw_body
 
     # load task + integration secret
-    # NOTE: This SELECT starts an implicit transaction
     row = (await db.execute(text("""
         SELECT
             t.id,
@@ -95,13 +94,11 @@ async def task_callback(
     new_status = "done" if body.status == "done" else "failed"
     last_error = body.error if new_status == "failed" else None
 
-    # We reuse the existing transaction started by the SELECT above.
-    # No "async with db.begin():" here to avoid "Transaction already started" error.
-    
+    # CORRECTION ICI : CAST(:last_error AS text) pour éviter l'AmbiguousParameterError
     await db.execute(text("""
         UPDATE tasks
         SET status=:status,
-            last_error = CASE WHEN :last_error IS NULL THEN last_error ELSE :last_error END,
+            last_error = CASE WHEN CAST(:last_error AS text) IS NULL THEN last_error ELSE CAST(:last_error AS text) END,
             runtime_json = COALESCE(runtime_json,'{}'::jsonb)
                 || jsonb_build_object(
                     'finished_at', to_jsonb(CAST(:finished_at AS text)),
