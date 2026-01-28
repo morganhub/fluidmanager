@@ -18,139 +18,182 @@ def publish_preview_zip(self, zip_b64: str, bucket: str, prefix: str, artifact_i
 
     started_at = datetime.now(timezone.utc).isoformat()
 
-    update_artifact_metadata(
-        artifact_id,
-        {
-            "state": "STARTED",
-            "started_at": started_at,
-            "celery_task_id": self.request.id,
-            "bucket": bucket,
-            "prefix": prefix,
-        },
-    )
+    update_artifact_metadata(artifact_id, {
+        "state": "STARTED",
+        "started_at": started_at,
+        "celery_task_id": self.request.id,
+        "bucket": bucket,
+        "prefix": prefix,
+    })
 
     try:
         zip_bytes = base64.b64decode(zip_b64.encode("utf-8"))
         res = upload_zip_to_prefix(zip_bytes, bucket=bucket, prefix=prefix)
 
         finished_at = datetime.now(timezone.utc).isoformat()
-        update_artifact_metadata(
-            artifact_id,
-            {
-                "state": "SUCCESS",
-                "finished_at": finished_at,
-                "uploaded": res.get("uploaded", 0),
-            },
-        )
+        update_artifact_metadata(artifact_id, {
+            "state": "SUCCESS",
+            "finished_at": finished_at,
+            "uploaded": res.get("uploaded", 0),
+        })
         return {"ok": True, **res}
 
     except Exception as e:
         finished_at = datetime.now(timezone.utc).isoformat()
-        update_artifact_metadata(
-            artifact_id,
-            {
-                "state": "FAILURE",
-                "finished_at": finished_at,
-                "error": str(e),
-            },
-        )
+        update_artifact_metadata(artifact_id, {
+            "state": "FAILURE",
+            "finished_at": finished_at,
+            "error": str(e),
+        })
         raise
 
 
-@celery_app.task(name="fm.long_demo", bind=True)
-def long_demo(self, company_code: str, task_id: str, seconds: int = 60) -> dict:
+# ----------------------------
+# Generic runner
+# ----------------------------
+
+@celery_app.task(name="fm.run_task", bind=True)
+def run_task(self, company_code: str, task_id: str) -> dict:
     """
-    Demo task:
-    - lit control_json.pause / control_json.cancel
-    - écrit tasks.status AVEC les valeurs enum DB:
-        queued, running, paused, canceled, done, failed
+    Generic runner:
+    - Reads tasks.runtime_json.job_type + job_payload
+    - Uses control_json.pause/cancel
+    - Writes tasks.status using DB enum values
     """
-    import time
+    import psycopg
     from datetime import datetime, timezone
 
-    import psycopg
     from .db import _sync_dsn, get_task_control
 
     dsn = _sync_dsn()
-    started_at = datetime.now(timezone.utc).isoformat()
 
-    def set_status(new_status: str, **runtime_extra) -> None:
-        """
-        Update status + heartbeat + runtime_json minimal (celery_task_id + timestamps).
-        """
-        runtime_extra = runtime_extra or {}
+    def fetch_runtime() -> dict:
+        with psycopg.connect(dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT COALESCE(t.runtime_json,'{}'::jsonb)
+                    FROM tasks t
+                    JOIN companies c ON c.id=t.company_id
+                    WHERE c.code=%s AND t.id=%s::uuid
+                    LIMIT 1
+                    """,
+                    (company_code, task_id),
+                )
+                row = cur.fetchone()
+                return row[0] if row else {}
+
+    def set_status(new_status: str, patch_runtime: dict | None = None, last_error: str | None = None) -> None:
+        patch_runtime = patch_runtime or {}
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     UPDATE tasks t
-                    SET status = %s,
+                    SET status=%s,
                         last_heartbeat_at = now(),
-                        runtime_json = COALESCE(runtime_json,'{}'::jsonb)
-                          || jsonb_build_object(
-                                'celery_task_id', to_jsonb(CAST(%s AS text)),
-                                'worker_started_at', COALESCE(runtime_json->>'worker_started_at', %s),
-                                'worker_last_heartbeat_at', %s
-                             )
-                          || COALESCE(%s::jsonb, '{}'::jsonb)
+                        last_error = COALESCE(%s, t.last_error),
+                        runtime_json = COALESCE(t.runtime_json,'{}'::jsonb)
+                          || %s::jsonb
+                          || jsonb_build_object('celery_task_id', to_jsonb(CAST(%s AS text)))
                     FROM companies c
-                    WHERE c.id=t.company_id
-                      AND c.code=%s
-                      AND t.id=%s::uuid
+                    WHERE c.id=t.company_id AND c.code=%s AND t.id=%s::uuid
                     """,
                     (
                         new_status,
+                        last_error,
+                        psycopg.types.json.Json(patch_runtime),
                         self.request.id,
-                        started_at,
-                        datetime.now(timezone.utc).isoformat(),
-                        psycopg.types.json.Jsonb(runtime_extra) if runtime_extra else None,
                         company_code,
                         task_id,
                     ),
                 )
             conn.commit()
 
-    # Start
-    set_status("running")
+    started_at = datetime.now(timezone.utc).isoformat()
+
+    runtime = fetch_runtime()
+    job_type = runtime.get("job_type")
+    job_payload = runtime.get("job_payload") or {}
+
+    # start
+    set_status("running", patch_runtime={"started_at": started_at, "job_type": job_type})
+
+    try:
+        if job_type == "long_demo":
+            seconds = int(job_payload.get("seconds", 60))
+            return _handle_long_demo(
+                company_code=company_code,
+                task_id=task_id,
+                seconds=seconds,
+                started_at=started_at,
+                dsn=dsn,
+                set_status=set_status,
+                get_task_control=get_task_control,
+            )
+
+        # TODO: ajoute tes vrais handlers ici (publish, runner IA, etc.)
+        raise ValueError(f"Unknown job_type={job_type!r}")
+
+    except Exception as e:
+        set_status("failed", patch_runtime={"finished_at": datetime.now(timezone.utc).isoformat()}, last_error=str(e))
+        raise
+
+
+def _handle_long_demo(
+    company_code: str,
+    task_id: str,
+    seconds: int,
+    started_at: str,
+    dsn: str,
+    set_status,
+    get_task_control,
+) -> dict:
+    import time
+    import psycopg
 
     elapsed = 0
     was_paused = False
 
-    try:
-        while elapsed < int(seconds):
-            ctl = get_task_control(company_code, task_id) or {}
+    while elapsed < seconds:
+        ctl = get_task_control(company_code, task_id) or {}
 
-            # CANCEL
-            if ctl.get("cancel") is True:
-                set_status("canceled", worker_finished_at=datetime.now(timezone.utc).isoformat())
-                return {"ok": False, "state": "CANCELED", "elapsed": elapsed, "started_at": started_at}
+        if ctl.get("cancel") is True:
+            set_status("canceled", patch_runtime={"finished_at": _utc_iso()})
+            return {"ok": False, "state": "CANCELED", "elapsed": elapsed, "started_at": started_at}
 
-            # PAUSE
-            if ctl.get("pause") is True:
-                if not was_paused:
-                    set_status("paused")
-                    was_paused = True
-                time.sleep(1)
-                continue
-            else:
-                if was_paused:
-                    set_status("running")
-                    was_paused = False
-
+        if ctl.get("pause") is True:
+            if not was_paused:
+                set_status("paused")
+                was_paused = True
             time.sleep(1)
-            elapsed += 1
-
-            # Heartbeat léger
-            if elapsed % 5 == 0:
+            continue
+        else:
+            if was_paused:
                 set_status("running")
+                was_paused = False
 
-        set_status("done", worker_finished_at=datetime.now(timezone.utc).isoformat())
-        return {"ok": True, "state": "DONE", "elapsed": elapsed, "started_at": started_at}
+        time.sleep(1)
+        elapsed += 1
 
-    except Exception as e:
-        set_status(
-            "failed",
-            worker_finished_at=datetime.now(timezone.utc).isoformat(),
-            worker_error=str(e),
-        )
-        raise
+        if elapsed % 5 == 0:
+            with psycopg.connect(dsn) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE tasks t
+                        SET last_heartbeat_at = now()
+                        FROM companies c
+                        WHERE c.id=t.company_id AND c.code=%s AND t.id=%s::uuid
+                        """,
+                        (company_code, task_id),
+                    )
+                conn.commit()
+
+    set_status("done", patch_runtime={"finished_at": _utc_iso()})
+    return {"ok": True, "state": "DONE", "elapsed": elapsed, "started_at": started_at}
+
+
+def _utc_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()

@@ -21,6 +21,17 @@ app.include_router(tasks_run_router)
 from .artifacts import router as artifacts_router
 app.include_router(artifacts_router)
 
+from .tasks_create import router as tasks_create_router
+app.include_router(tasks_create_router)
+
+from .tasks_list import router as tasks_list_router
+app.include_router(tasks_list_router)
+
+from .tasks_events import router as tasks_events_router
+app.include_router(tasks_events_router)
+
+from .integrations import router as integrations_router
+app.include_router(integrations_router)
 
 @app.get("/health")
 def health():
@@ -52,7 +63,6 @@ async def list_artifacts(company_code: str, db: AsyncSession = Depends(get_db)):
         LIMIT 100
     """), {"company_code": company_code})).mappings().all()
 
-    # si company inconnue, mieux de check séparément (v1)
     return {"items": list(rows)}
 
 from pydantic import BaseModel
@@ -70,7 +80,6 @@ async def job_echo(payload: EchoIn):
 @app.get("/jobs/{task_id}")
 async def job_status(task_id: str):
     r = AsyncResult(task_id, app=celery_app)
-    # states: PENDING, STARTED, SUCCESS, FAILURE, RETRY
     out = {"task_id": task_id, "state": r.state}
     if r.successful():
         out["result"] = r.result
