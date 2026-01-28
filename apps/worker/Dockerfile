@@ -5,9 +5,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN groupadd -g 1000 app \
+    && useradd -m -u 1000 -g 1000 -s /bin/bash app \
+    && mkdir -p /app \
+    && chown -R app:app /app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY worker ./worker
 
-CMD ["celery", "-A", "worker.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+USER app

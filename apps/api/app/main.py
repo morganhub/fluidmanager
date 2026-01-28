@@ -33,6 +33,13 @@ app.include_router(tasks_events_router)
 from .integrations import router as integrations_router
 app.include_router(integrations_router)
 
+from .tasks_dependencies import router as tasks_dependencies_router
+app.include_router(tasks_dependencies_router)
+
+from .tasks_callback import router as tasks_callback_router
+app.include_router(tasks_callback_router)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

@@ -9,6 +9,14 @@ celery_app = Celery(
     backend=REDIS_URL,
 )
 
+celery_app.conf.beat_schedule = {
+    "scheduler-tick-every-3s": {
+        "task": "fm.scheduler_tick",
+        "schedule": 3.0,
+        "args": (25,),
+    }
+}
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],

@@ -1,5 +1,23 @@
 services:
 
+  beat:
+    build:
+      context: ./apps/worker
+    image: fluidmanager-worker:latest
+    container_name: fluidmanager-beat
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fluidmanager:${POSTGRES_PASSWORD}@postgres:5432/fluidmanager
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - fluidmanager_net
+    command: celery -A worker.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+
   api:
     build:
       context: ./apps/api
@@ -29,6 +47,7 @@ services:
   worker:
     build:
       context: ./apps/worker
+    image: fluidmanager-worker:latest
     container_name: fluidmanager-worker
     restart: unless-stopped
     environment:
@@ -47,6 +66,7 @@ services:
         condition: service_healthy
     networks:
       - fluidmanager_net
+    command: celery -A worker.celery_app worker --loglevel=info --concurrency=2
 
   postgres:
     image: pgvector/pgvector:pg16
