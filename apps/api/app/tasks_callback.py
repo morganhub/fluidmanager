@@ -55,6 +55,7 @@ async def task_callback(
     msg = (str(ts) + ".").encode("utf-8") + raw_body
 
     # load task + integration secret
+    # NOTE: This SELECT starts an implicit transaction
     row = (await db.execute(text("""
         SELECT
             t.id,
@@ -94,54 +95,58 @@ async def task_callback(
     new_status = "done" if body.status == "done" else "failed"
     last_error = body.error if new_status == "failed" else None
 
-    async with db.begin():
-        await db.execute(text("""
-            UPDATE tasks
-            SET status=:status,
-                last_error = CASE WHEN :last_error IS NULL THEN last_error ELSE :last_error END,
-                runtime_json = COALESCE(runtime_json,'{}'::jsonb)
-                    || jsonb_build_object(
-                        'finished_at', to_jsonb(CAST(:finished_at AS text)),
-                        'callback', CAST(:callback_json AS jsonb)
-                    )
-            WHERE id=:task_id
-        """), {
-            "status": new_status,
-            "last_error": last_error,
-            "finished_at": finished_at,
-            "callback_json": json.dumps({
-                "status": body.status,
-                "result": body.result,
-                "error": body.error,
-                "ts": finished_at,
-            }),
-            "task_id": task_id,
-        })
+    # We reuse the existing transaction started by the SELECT above.
+    # No "async with db.begin():" here to avoid "Transaction already started" error.
+    
+    await db.execute(text("""
+        UPDATE tasks
+        SET status=:status,
+            last_error = CASE WHEN :last_error IS NULL THEN last_error ELSE :last_error END,
+            runtime_json = COALESCE(runtime_json,'{}'::jsonb)
+                || jsonb_build_object(
+                    'finished_at', to_jsonb(CAST(:finished_at AS text)),
+                    'callback', CAST(:callback_json AS jsonb)
+                )
+        WHERE id=:task_id
+    """), {
+        "status": new_status,
+        "last_error": last_error,
+        "finished_at": finished_at,
+        "callback_json": json.dumps({
+            "status": body.status,
+            "result": body.result,
+            "error": body.error,
+            "ts": finished_at,
+        }),
+        "task_id": task_id,
+    })
 
-        # events
-        await db.execute(text("""
-            INSERT INTO task_events (company_id, task_id, event_type, actor_type, payload)
-            VALUES (:company_id, :task_id, 'callback_received', 'integration', CAST(:payload AS jsonb))
-        """), {
-            "company_id": row["company_id"],
-            "task_id": task_id,
-            "payload": json.dumps({
-                "status": body.status,
-                "ts": finished_at,
-            }),
-        })
+    # events
+    await db.execute(text("""
+        INSERT INTO task_events (company_id, task_id, event_type, actor_type, payload)
+        VALUES (:company_id, :task_id, 'callback_received', 'integration', CAST(:payload AS jsonb))
+    """), {
+        "company_id": row["company_id"],
+        "task_id": task_id,
+        "payload": json.dumps({
+            "status": body.status,
+            "ts": finished_at,
+        }),
+    })
 
-        await db.execute(text("""
-            INSERT INTO task_events (company_id, task_id, event_type, actor_type, payload)
-            VALUES (:company_id, :task_id, :event_type, 'system', CAST(:payload AS jsonb))
-        """), {
-            "company_id": row["company_id"],
-            "task_id": task_id,
-            "event_type": "task_done" if new_status == "done" else "task_failed",
-            "payload": json.dumps({
-                "ts": finished_at,
-                "error": body.error,
-            }),
-        })
+    await db.execute(text("""
+        INSERT INTO task_events (company_id, task_id, event_type, actor_type, payload)
+        VALUES (:company_id, :task_id, :event_type, 'system', CAST(:payload AS jsonb))
+    """), {
+        "company_id": row["company_id"],
+        "task_id": task_id,
+        "event_type": "task_done" if new_status == "done" else "task_failed",
+        "payload": json.dumps({
+            "ts": finished_at,
+            "error": body.error,
+        }),
+    })
+
+    await db.commit()
 
     return {"ok": True, "task_id": str(task_id), "status": new_status}

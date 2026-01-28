@@ -76,8 +76,11 @@ def run_task(self, company_code: str, task_id: str) -> dict:
     """
     import psycopg
     from psycopg.rows import dict_row
+    import traceback  # Ajout pour voir l'erreur exacte
 
     from .db import _sync_dsn, get_task_control
+
+    print(f"--- [Worker] Starting task {task_id} for company {company_code} ---") # DEBUG
 
     dsn = _sync_dsn()
 
@@ -103,22 +106,26 @@ def run_task(self, company_code: str, task_id: str) -> dict:
                 return dict(row) if row else {}
 
     def insert_event(company_id: str, event_type: str, payload: dict) -> None:
-        with psycopg.connect(dsn) as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO task_events (company_id, task_id, event_type, actor_type, payload)
-                    VALUES (%s::uuid, %s::uuid, %s, 'system', %s::jsonb)
-                    """,
-                    (company_id, task_id, event_type, json.dumps(payload)),
-                )
-            conn.commit()
+        try:
+            with psycopg.connect(dsn) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO task_events (company_id, task_id, event_type, actor_type, payload)
+                        VALUES (%s::uuid, %s::uuid, %s, 'system', %s::jsonb)
+                        """,
+                        (company_id, task_id, event_type, json.dumps(payload)),
+                    )
+                conn.commit()
+        except Exception as e:
+            print(f"--- [Worker] Error inserting event: {e} ---")
 
     def set_status(
         new_status: str,
         patch_runtime: Optional[dict] = None,
         last_error: Optional[str] = None,
     ) -> None:
+        print(f"--- [Worker] Set status to {new_status} (error={last_error}) ---") # DEBUG
         patch_runtime = patch_runtime or {}
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
@@ -145,21 +152,24 @@ def run_task(self, company_code: str, task_id: str) -> dict:
                 )
             conn.commit()
 
-    task = fetch_task()
-    if not task:
-        raise RuntimeError("Task not found")
-
-    runtime = task.get("runtime_json") or {}
-    job_type = runtime.get("job_type")
-    job_payload = runtime.get("job_payload") or {}
-
-    started_at = _utc_iso()
-
-    # start
-    set_status("running", patch_runtime={"started_at": started_at, "job_type": job_type})
-    insert_event(task["company_id"], "task_started", {"ts": started_at, "job_type": job_type})
-
     try:
+        task = fetch_task()
+        if not task:
+            print(f"--- [Worker] Task {task_id} not found in DB ---")
+            raise RuntimeError("Task not found")
+
+        runtime = task.get("runtime_json") or {}
+        job_type = runtime.get("job_type")
+        job_payload = runtime.get("job_payload") or {}
+
+        print(f"--- [Worker] Job Type: {job_type} ---") # DEBUG
+
+        started_at = _utc_iso()
+
+        # start
+        set_status("running", patch_runtime={"started_at": started_at, "job_type": job_type})
+        insert_event(task["company_id"], "task_started", {"ts": started_at, "job_type": job_type})
+
         if job_type == "long_demo":
             seconds = int(job_payload.get("seconds", 60))
             return _handle_long_demo(
@@ -173,6 +183,7 @@ def run_task(self, company_code: str, task_id: str) -> dict:
             )
 
         if job_type in WEBHOOK_JOB_TYPES:
+            print("--- [Worker] Delegating to _handle_webhook_trigger ---") # DEBUG
             return _handle_webhook_trigger(
                 company_code=company_code,
                 task_id=task_id,
@@ -187,9 +198,12 @@ def run_task(self, company_code: str, task_id: str) -> dict:
         raise ValueError(f"Unknown job_type={job_type!r}")
 
     except Exception as e:
+        print(f"--- [Worker] CRASH in run_task: {e} ---") # DEBUG
+        traceback.print_exc() # Imprime la trace complète dans les logs
         finished_at = _utc_iso()
         set_status("failed", patch_runtime={"finished_at": finished_at}, last_error=str(e))
-        insert_event(task["company_id"], "task_failed", {"ts": finished_at, "error": str(e)})
+        if 'task' in locals() and task:
+             insert_event(task["company_id"], "task_failed", {"ts": finished_at, "error": str(e)})
         raise
 
 
