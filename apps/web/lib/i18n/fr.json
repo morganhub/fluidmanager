@@ -1,0 +1,137 @@
+{
+    "app": {
+        "name": "FluidManager",
+        "tagline": "Pilotez votre entreprise virtuelle"
+    },
+    "auth": {
+        "login": "Connexion",
+        "logout": "Déconnexion",
+        "apiKey": "Clé API",
+        "apiKeyPlaceholder": "Entrez votre clé API",
+        "submit": "Se connecter",
+        "invalidKey": "Clé API invalide",
+        "welcome": "Bienvenue dans FluidManager"
+    },
+    "nav": {
+        "dashboard": "Tableau de bord",
+        "companies": "Entreprises",
+        "settings": "Paramètres",
+        "employees": "Employés",
+        "hierarchy": "Organigramme",
+        "integrations": "Intégrations",
+        "projects": "Projets",
+        "tasks": "Tâches",
+        "files": "Fichiers",
+        "meetings": "Réunions",
+        "activity": "Activité",
+        "admin": "Administration"
+    },
+    "common": {
+        "create": "Créer",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "close": "Fermer",
+        "confirm": "Confirmer",
+        "search": "Rechercher",
+        "filter": "Filtrer",
+        "loading": "Chargement...",
+        "noData": "Aucune donnée",
+        "error": "Erreur",
+        "success": "Succès",
+        "actions": "Actions",
+        "status": "Statut",
+        "active": "Actif",
+        "inactive": "Inactif",
+        "all": "Tous",
+        "copy": "Copier",
+        "copied": "Copié !"
+    },
+    "task": {
+        "title": "Titre",
+        "description": "Description",
+        "priority": "Priorité",
+        "assignee": "Assigné à",
+        "status": {
+            "draft": "Brouillon",
+            "queued": "En attente",
+            "running": "En cours",
+            "paused": "En pause",
+            "blocked": "Bloqué",
+            "needs_approval": "Validation requise",
+            "failed": "Échoué",
+            "canceled": "Annulé",
+            "done": "Terminé"
+        },
+        "priority_label": {
+            "low": "Basse",
+            "normal": "Normale",
+            "high": "Haute",
+            "urgent": "Urgente"
+        },
+        "actions": {
+            "pause": "Mettre en pause",
+            "resume": "Reprendre",
+            "cancel": "Annuler",
+            "retry": "Réessayer",
+            "reset": "Réinitialiser"
+        },
+        "createNew": "Nouvelle tâche",
+        "noTasks": "Aucune tâche",
+        "events": "Événements",
+        "dependencies": "Dépendances",
+        "outputs": "Résultats"
+    },
+    "employee": {
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "title": "Titre",
+        "department": "Département",
+        "level": "Niveau",
+        "levels": {
+            "N": "PDG",
+            "N-1": "Direction",
+            "N-2": "Management",
+            "N-3": "Équipe",
+            "N-4": "Junior",
+            "N-5": "Stagiaire",
+            "OTHER": "Autre"
+        },
+        "instructions": "Instructions",
+        "permissions": "Permissions",
+        "history": "Historique",
+        "createNew": "Nouvel employé",
+        "noEmployees": "Aucun employé"
+    },
+    "project": {
+        "code": "Code",
+        "name": "Nom",
+        "description": "Description",
+        "createNew": "Nouveau projet",
+        "noProjects": "Aucun projet"
+    },
+    "meeting": {
+        "title": "Titre",
+        "agenda": "Ordre du jour",
+        "participants": "Participants",
+        "scribe": "Co-directeur (Scribe)",
+        "start": "Démarrer",
+        "end": "Terminer",
+        "summary": "Résumé",
+        "decisions": "Décisions",
+        "actions": "Actions à suivre",
+        "createNew": "Nouvelle réunion",
+        "noMeetings": "Aucune réunion"
+    },
+    "integration": {
+        "provider": "Fournisseur",
+        "baseUrl": "URL de base",
+        "callbackEndpoint": "Endpoint de callback",
+        "secret": "Secret",
+        "secretWarning": "Le secret ne sera affiché qu'une seule fois",
+        "testWebhook": "Tester le webhook",
+        "createNew": "Nouvelle intégration",
+        "noIntegrations": "Aucune intégration"
+    }
+}

@@ -1,0 +1,137 @@
+{
+    "app": {
+        "name": "FluidManager",
+        "tagline": "Manage your virtual company"
+    },
+    "auth": {
+        "login": "Login",
+        "logout": "Logout",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Enter your API key",
+        "submit": "Sign in",
+        "invalidKey": "Invalid API key",
+        "welcome": "Welcome to FluidManager"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "companies": "Companies",
+        "settings": "Settings",
+        "employees": "Employees",
+        "hierarchy": "Org Chart",
+        "integrations": "Integrations",
+        "projects": "Projects",
+        "tasks": "Tasks",
+        "files": "Files",
+        "meetings": "Meetings",
+        "activity": "Activity",
+        "admin": "Administration"
+    },
+    "common": {
+        "create": "Create",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "close": "Close",
+        "confirm": "Confirm",
+        "search": "Search",
+        "filter": "Filter",
+        "loading": "Loading...",
+        "noData": "No data",
+        "error": "Error",
+        "success": "Success",
+        "actions": "Actions",
+        "status": "Status",
+        "active": "Active",
+        "inactive": "Inactive",
+        "all": "All",
+        "copy": "Copy",
+        "copied": "Copied!"
+    },
+    "task": {
+        "title": "Title",
+        "description": "Description",
+        "priority": "Priority",
+        "assignee": "Assigned to",
+        "status": {
+            "draft": "Draft",
+            "queued": "Queued",
+            "running": "Running",
+            "paused": "Paused",
+            "blocked": "Blocked",
+            "needs_approval": "Needs approval",
+            "failed": "Failed",
+            "canceled": "Canceled",
+            "done": "Done"
+        },
+        "priority_label": {
+            "low": "Low",
+            "normal": "Normal",
+            "high": "High",
+            "urgent": "Urgent"
+        },
+        "actions": {
+            "pause": "Pause",
+            "resume": "Resume",
+            "cancel": "Cancel",
+            "retry": "Retry",
+            "reset": "Reset"
+        },
+        "createNew": "New task",
+        "noTasks": "No tasks",
+        "events": "Events",
+        "dependencies": "Dependencies",
+        "outputs": "Outputs"
+    },
+    "employee": {
+        "firstName": "First name",
+        "lastName": "Last name",
+        "title": "Title",
+        "department": "Department",
+        "level": "Level",
+        "levels": {
+            "N": "CEO",
+            "N-1": "Executive",
+            "N-2": "Management",
+            "N-3": "Team",
+            "N-4": "Junior",
+            "N-5": "Intern",
+            "OTHER": "Other"
+        },
+        "instructions": "Instructions",
+        "permissions": "Permissions",
+        "history": "History",
+        "createNew": "New employee",
+        "noEmployees": "No employees"
+    },
+    "project": {
+        "code": "Code",
+        "name": "Name",
+        "description": "Description",
+        "createNew": "New project",
+        "noProjects": "No projects"
+    },
+    "meeting": {
+        "title": "Title",
+        "agenda": "Agenda",
+        "participants": "Participants",
+        "scribe": "Co-director (Scribe)",
+        "start": "Start",
+        "end": "End",
+        "summary": "Summary",
+        "decisions": "Decisions",
+        "actions": "Action items",
+        "createNew": "New meeting",
+        "noMeetings": "No meetings"
+    },
+    "integration": {
+        "provider": "Provider",
+        "baseUrl": "Base URL",
+        "callbackEndpoint": "Callback endpoint",
+        "secret": "Secret",
+        "secretWarning": "The secret will only be shown once",
+        "testWebhook": "Test webhook",
+        "createNew": "New integration",
+        "noIntegrations": "No integrations"
+    }
+}

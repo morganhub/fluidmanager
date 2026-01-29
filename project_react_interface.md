@@ -1,6 +1,8 @@
 # FluidManager — Spécification fonctionnelle (Interface React)
 
-> Objectif : fournir une UI **opérationnelle** pour piloter une **entreprise virtuelle d’agents** (hiérarchies dynamiques), animer des **réunions** multi-employés, et exécuter/contrôler un **workflow de tâches** (N-1 ↔ N-2) avec **dépendances**, **connecteurs webhook**, **fichiers/preview**, et **multilingue** (dictionnaires fichiers).
+> Objectif : 
+fournir une UI **opérationnelle** pour piloter une **entreprise virtuelle d’agents** (hiérarchies dynamiques), 
+animer des **réunions** multi-employés, et exécuter/contrôler un **workflow de tâches** (N-1 ↔ N-2) avec **dépendances**, **connecteurs webhook**, **fichiers/preview**, et **multilingue** (dictionnaires fichiers).
 
 ---
 
