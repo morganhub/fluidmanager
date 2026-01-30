@@ -3,6 +3,15 @@
         "name": "FluidManager",
         "tagline": "Pilotez votre entreprise virtuelle"
     },
+    "common": {
+        "retry": "Réessayer",
+        "cancel": "Annuler",
+        "save": "Enregistrer",
+        "delete": "Supprimer",
+        "edit": "Modifier",
+        "confirm": "Confirmer",
+        "reset": "Remettre à zéro"
+    },
     "auth": {
         "login": "Connexion",
         "logout": "Déconnexion",
@@ -18,6 +27,7 @@
         "settings": "Paramètres",
         "employees": "Employés",
         "hierarchy": "Organigramme",
+        "organigramme": "Organigramme",
         "integrations": "Intégrations",
         "projects": "Projets",
         "tasks": "Tâches",
@@ -27,7 +37,8 @@
         "admin": "Administration",
         "system": "Système",
         "users": "Utilisateurs",
-        "companiesAdmin": "Gestion entreprises"
+        "companiesAdmin": "Gestion entreprises",
+        "blueprints": "Blueprints"
     },
     "common": {
         "create": "Créer",
@@ -136,5 +147,59 @@
         "testWebhook": "Tester le webhook",
         "createNew": "Nouvelle intégration",
         "noIntegrations": "Aucune intégration"
+    },
+    "blueprint": {
+        "title": "Blueprints",
+        "description": "Modèles d'employés pour les managers",
+        "code": "Code",
+        "role": "Rôle",
+        "level": "Niveau",
+        "levels": {
+            "N": "Dirigeant (N)",
+            "N-1": "Direction (N-1)",
+            "N-2": "Opérationnel (N-2)"
+        },
+        "identity": "Identité par défaut",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "bio": "Biographie",
+        "portrait": "Portrait",
+        "skills": "Compétences",
+        "systemPrompt": "Prompt système",
+        "webhooks": "Webhooks",
+        "webhookReview": "Vérification",
+        "webhookMeeting": "Réunion",
+        "webhookTask": "Tâche",
+        "relations": "Relations hiérarchiques",
+        "parentBlueprints": "Supérieurs (N-1)",
+        "childBlueprints": "Subordonnés (N-2)",
+        "createNew": "Nouveau blueprint",
+        "editBlueprint": "Modifier le blueprint",
+        "noBlueprints": "Aucun blueprint",
+        "selectPortrait": "Sélectionner un portrait",
+        "uploadPortrait": "Télécharger un portrait",
+        "portraitLibrary": "Bibliothèque de portraits"
+    },
+    "orgChart": {
+        "title": "Organigramme",
+        "recruit": "Recruter",
+        "recruiting": "Recruter un profil",
+        "confirmRecruit": "Confirmer le recrutement",
+        "searchRole": "Rechercher un rôle...",
+        "noProfilesAvailable": "Aucun profil disponible pour ce poste",
+        "vacantPosition": "Poste vacant",
+        "alreadyHired": "en poste",
+        "recruitAction": "Recruter",
+        "editEmployee": "Modifier l'employé",
+        "removeEmployee": "Retirer de l'entreprise ?",
+        "removeConfirmMessage": "sera retiré de l'organigramme. Le poste deviendra vacant.",
+        "remove": "Retirer",
+        "profileCustomizable": "Ce profil sera ajouté à votre organigramme. Vous pourrez personnaliser son nom et sa bio.",
+        "levels": {
+            "MANAGER": "Dirigeant",
+            "N": "Co-Président",
+            "N-1": "Directeur",
+            "N-2": "Collaborateur"
+        }
     }
 }

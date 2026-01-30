@@ -6,6 +6,9 @@
 ---
 
 ## 1) Commandes Docker de base
+```bash
+docker compose up -d --build api web
+```
 
 ### Démarrer l'ensemble de la stack
 ```bash

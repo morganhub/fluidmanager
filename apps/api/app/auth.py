@@ -183,6 +183,29 @@ def require_superadmin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+async def require_company_access(user: dict, company_id: str, db: AsyncSession) -> None:
+    """
+    Validate that the user has access to the specified company.
+    Superadmins have access to all companies.
+    Regular users must be assigned to the company.
+    """
+    if user["role"] == "superadmin":
+        return  # Superadmins have access to everything
+    
+    # Check if user is assigned to this company
+    result = await db.execute(
+        text("""
+            SELECT 1 FROM admin_user_companies
+            WHERE admin_user_id = :user_id AND company_id = :company_id
+        """),
+        {"user_id": user["id"], "company_id": company_id}
+    )
+    if not result.first():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this company"
+        )
+
 # =============================================================================
 # Endpoints
 # =============================================================================

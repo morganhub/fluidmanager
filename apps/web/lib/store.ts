@@ -93,11 +93,13 @@ interface AuthState {
     isAuthenticated: boolean;
     user: AuthUser | null;
     allowedCompanies: string[];  // Company IDs user can access
+    _hasHydrated: boolean;       // Support for Next.js hydration
 
     // Actions
     setAuthenticated: (value: boolean) => void;
     setUser: (user: AuthUser | null) => void;
     setAllowedCompanies: (companies: string[]) => void;
+    setHasHydrated: (value: boolean) => void;
     login: (user: AuthUser) => void;
     logout: () => void;
 }
@@ -108,12 +110,15 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             user: null,
             allowedCompanies: [],
+            _hasHydrated: false,
 
             setAuthenticated: (value) => set({ isAuthenticated: value }),
 
             setUser: (user) => set({ user }),
 
             setAllowedCompanies: (companies) => set({ allowedCompanies: companies }),
+
+            setHasHydrated: (value) => set({ _hasHydrated: value }),
 
             login: (user) => set({
                 isAuthenticated: true,
@@ -134,6 +139,9 @@ export const useAuthStore = create<AuthState>()(
                 user: state.user,
                 allowedCompanies: state.allowedCompanies,
             }),
+            onRehydrateStorage: () => (state) => {
+                state?.setHasHydrated(true);
+            },
         }
     )
 );
@@ -151,4 +159,11 @@ export function useIsSuperadmin(): boolean {
  */
 export function useUser(): AuthUser | null {
     return useAuthStore((state) => state.user);
+}
+
+/**
+ * Hook to check if store has hydrated
+ */
+export function useHasHydrated(): boolean {
+    return useAuthStore((state) => state._hasHydrated);
 }

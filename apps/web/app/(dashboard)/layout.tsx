@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { isAuthenticated } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -14,7 +14,8 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
-    const { sidebarCollapsed, drawerOpen } = useAppStore();
+    const pathname = usePathname();
+    const { sidebarCollapsed, drawerOpen, setCurrentCompany, setCurrentProject, currentCompanyCode, currentProjectCode } = useAppStore();
 
     // Check authentication on mount
     useEffect(() => {
@@ -22,6 +23,24 @@ export default function DashboardLayout({
             router.push("/login");
         }
     }, [router]);
+
+    // Sync store with URL on mount and pathname changes
+    useEffect(() => {
+        const parts = pathname.split("/");
+        // /companies/[code]
+        if (parts[1] === "companies" && parts[2]) {
+            if (parts[2] !== currentCompanyCode) {
+                setCurrentCompany(parts[2]);
+            }
+
+            // /companies/[code]/projects/[pcode]
+            if (parts[3] === "projects" && parts[4]) {
+                if (parts[4] !== currentProjectCode) {
+                    setCurrentProject(parts[4]);
+                }
+            }
+        }
+    }, [pathname, currentCompanyCode, currentProjectCode, setCurrentCompany, setCurrentProject]);
 
     return (
         <TooltipProvider>

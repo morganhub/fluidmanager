@@ -359,3 +359,156 @@ export interface PaginatedResponse<T> {
     page: number;
     page_size: number;
 }
+
+// =============================================================================
+// Blueprint & Portrait Types
+// =============================================================================
+
+export interface Portrait {
+    id: string;
+    filename: string;
+    uri: string;
+    uploaded_by: string | null;
+    created_at: string;
+}
+
+export interface BlueprintRelation {
+    id: string;
+    code: string;
+    role: LocalizedText;
+}
+
+export interface Webhooks {
+    review: string | null;
+    meeting: string | null;
+    task: string | null;
+}
+
+// Localized text for multilingual fields
+// Format: { "fr": "French text", "en": "English text" }
+export type LocalizedText = Record<string, string>;
+
+// Supported locales for the application
+export const SUPPORTED_LOCALES = ["fr", "en"] as const;
+export type SupportedLocale = typeof SUPPORTED_LOCALES[number];
+
+// Helper to get a translation with fallback
+export function getLocalizedText(
+    text: LocalizedText | string | null | undefined,
+    locale: SupportedLocale = "fr",
+    fallback: SupportedLocale = "fr"
+): string {
+    if (!text) return "";
+    if (typeof text === "string") return text; // Backward compatibility
+    return text[locale] || text[fallback] || Object.values(text)[0] || "";
+}
+
+export interface Blueprint {
+    id: string;
+    code: string;
+    role: LocalizedText;
+    level: "N" | "N-1" | "N-2";
+    default_first_name: string;
+    default_last_name: string;
+    default_bio: LocalizedText;
+    default_portrait_id: string | null;
+    default_portrait_uri: string | null;
+    skills: string[];
+    system_prompt: LocalizedText;
+    webhooks: Webhooks;
+    is_active: boolean;
+    parent_blueprints: BlueprintRelation[];
+    child_blueprints: BlueprintRelation[];
+    created_at: string;
+    updated_at: string;
+}
+
+export interface BlueprintCreate {
+    code: string;
+    role: LocalizedText;
+    level: "N" | "N-1" | "N-2";
+    default_first_name?: string;
+    default_last_name?: string;
+    default_bio?: LocalizedText;
+    default_portrait_id?: string | null;
+    skills?: string[];
+    system_prompt?: LocalizedText;
+    webhooks?: Partial<Webhooks>;
+    is_active?: boolean;
+    parent_blueprint_ids?: string[];
+    child_blueprint_ids?: string[];
+}
+
+export interface BlueprintUpdate extends Partial<BlueprintCreate> { }
+
+
+// =============================================================================
+// Blueprint API Functions
+// =============================================================================
+
+export async function getBlueprints(params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    level?: string;
+    is_active?: boolean;
+}): Promise<PaginatedResponse<Blueprint>> {
+    const queryParams: Record<string, string> = {};
+    if (params?.page) queryParams.page = String(params.page);
+    if (params?.page_size) queryParams.page_size = String(params.page_size);
+    if (params?.search) queryParams.search = params.search;
+    if (params?.level) queryParams.level = params.level;
+    if (params?.is_active !== undefined) queryParams.is_active = String(params.is_active);
+
+    return apiGet<PaginatedResponse<Blueprint>>("/admin/blueprints", queryParams);
+}
+
+export async function getBlueprint(id: string): Promise<Blueprint> {
+    return apiGet<Blueprint>(`/admin/blueprints/${id}`);
+}
+
+export async function createBlueprint(data: BlueprintCreate): Promise<Blueprint> {
+    return apiPost<Blueprint>("/admin/blueprints", data);
+}
+
+export async function updateBlueprint(id: string, data: BlueprintUpdate): Promise<Blueprint> {
+    return apiPut<Blueprint>(`/admin/blueprints/${id}`, data);
+}
+
+export async function deleteBlueprint(id: string): Promise<void> {
+    return apiDelete(`/admin/blueprints/${id}`);
+}
+
+// =============================================================================
+// Portrait API Functions
+// =============================================================================
+
+export async function getPortraits(search?: string): Promise<{ items: Portrait[]; total: number }> {
+    const params = search ? { search } : undefined;
+    return apiGet<{ items: Portrait[]; total: number }>("/admin/portraits", params);
+}
+
+export async function uploadPortrait(file: File): Promise<Portrait> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const token = getToken();
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:18000"}/admin/portraits`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(error.detail || "Upload failed");
+    }
+
+    return response.json();
+}
+
+export async function deletePortrait(id: string): Promise<void> {
+    return apiDelete(`/admin/portraits/${id}`);
+}

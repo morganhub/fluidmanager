@@ -33,6 +33,11 @@ class CompanyCreate(BaseModel):
     locale: str = "fr-FR"
     timezone: str = "Europe/Paris"
     currency: str = "EUR"
+    # Manager info (optional - for auto-creating manager profile)
+    manager_first_name: str | None = None
+    manager_last_name: str | None = None
+    manager_email: str | None = None
+
 
 
 class CompanyUpdate(BaseModel):
@@ -215,10 +220,30 @@ async def create_company(
         }
     )
     company = result.mappings().first()
+    company_id = str(company["id"])
+    
+    # Initialize org chart structure (Manager, N, 3 N-1, 9 N-2 positions)
+    await db.execute(
+        text("SELECT init_company_org_chart(:company_id)"),
+        {"company_id": company_id}
+    )
+    
+    # Create manager profile if info provided
+    if data.manager_first_name and data.manager_last_name:
+        await db.execute(
+            text("SELECT create_company_manager(:company_id, :first_name, :last_name, :email)"),
+            {
+                "company_id": company_id,
+                "first_name": data.manager_first_name,
+                "last_name": data.manager_last_name,
+                "email": data.manager_email,
+            }
+        )
+    
     await db.commit()
     
     return CompanyResponse(
-        id=str(company["id"]),
+        id=company_id,
         code=company["code"],
         name=company["name"],
         legal_name=company["legal_name"],
@@ -235,6 +260,7 @@ async def create_company(
         updated_at=company["updated_at"],
         assigned_users=[],
     )
+
 
 
 @router.get("/{company_id}", response_model=CompanyResponse)

@@ -9,8 +9,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             new QueryClient({
                 defaultOptions: {
                     queries: {
-                        staleTime: 5 * 1000, // 5 seconds
-                        refetchInterval: 5 * 1000, // Polling every 5 seconds for boards
+                        staleTime: 60 * 1000, // 1 minute - data considered fresh
+                        refetchOnWindowFocus: false, // Don't refetch on tab focus
                         retry: 1,
                     },
                 },

@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, apiDelete, apiPost, apiPut } from "@/lib/api";
-import { useIsSuperadmin } from "@/lib/store";
+import { useIsSuperadmin, useHasHydrated } from "@/lib/store";
 import { createTranslator } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import {
     Plus,
     Search,
@@ -25,11 +26,11 @@ import {
     ChevronLeft,
     ChevronRight,
     Loader2,
-    Key
+    Key,
+    X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 interface AdminUser {
     id: string;
@@ -44,6 +45,12 @@ interface AdminUser {
     companies: { id: string; code: string; name: string }[];
 }
 
+interface Company {
+    id: string;
+    code: string;
+    name: string;
+}
+
 interface AdminUserListResponse {
     items: AdminUser[];
     total: number;
@@ -56,6 +63,7 @@ export default function SystemUsersPage() {
     const queryClient = useQueryClient();
     const router = useRouter();
     const isSuperadmin = useIsSuperadmin();
+    const hasHydrated = useHasHydrated();
 
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
@@ -65,12 +73,12 @@ export default function SystemUsersPage() {
     const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
     const [resetPasswordUser, setResetPasswordUser] = useState<AdminUser | null>(null);
 
-    // Redirect if not superadmin
+    // Redirect if not superadmin after hydration
     useEffect(() => {
-        if (!isSuperadmin) {
+        if (hasHydrated && !isSuperadmin) {
             router.push("/dashboard");
         }
-    }, [isSuperadmin, router]);
+    }, [isSuperadmin, hasHydrated, router]);
 
     // Fetch users
     const { data, isLoading, error } = useQuery({
@@ -125,7 +133,13 @@ export default function SystemUsersPage() {
 
     const totalPages = data ? Math.ceil(data.total / data.page_size) : 1;
 
-    if (!isSuperadmin) return null;
+    if (!hasHydrated || (!isSuperadmin && hasHydrated)) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-fm-blue" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -233,21 +247,25 @@ export default function SystemUsersPage() {
                                             {user.organization || <span className="text-muted-foreground">-</span>}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.companies.length === 0 ? (
-                                                    <span className="text-muted-foreground">Aucune</span>
-                                                ) : user.companies.slice(0, 3).map((c) => (
-                                                    <Badge key={c.id} variant="outline" className="text-xs">
-                                                        <Building2 className="mr-1 h-3 w-3" />
-                                                        {c.code}
-                                                    </Badge>
-                                                ))}
-                                                {user.companies.length > 3 && (
-                                                    <Badge variant="outline" className="text-xs">
-                                                        +{user.companies.length - 3}
-                                                    </Badge>
-                                                )}
-                                            </div>
+                                            {user.role === "superadmin" ? (
+                                                <span className="text-sm text-muted-foreground italic">Toutes</span>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {user.companies.length === 0 ? (
+                                                        <span className="text-muted-foreground">Aucune</span>
+                                                    ) : user.companies.slice(0, 3).map((c) => (
+                                                        <Badge key={c.id} variant="outline" className="text-xs">
+                                                            <Building2 className="mr-1 h-3 w-3" />
+                                                            {c.code}
+                                                        </Badge>
+                                                    ))}
+                                                    {user.companies.length > 3 && (
+                                                        <Badge variant="outline" className="text-xs">
+                                                            +{user.companies.length - 3}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={user.is_active ? "default" : "secondary"}>
@@ -320,11 +338,12 @@ export default function SystemUsersPage() {
 
             {/* Edit Dialog */}
             <Dialog open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)}>
-                <DialogContent>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     {editUser && (
                         <EditUserForm
                             user={editUser}
                             onSubmit={(data) => updateMutation.mutate({ id: editUser.id, data })}
+                            onClose={() => setEditUser(null)}
                             isLoading={updateMutation.isPending}
                             error={updateMutation.error?.message}
                         />
@@ -489,18 +508,22 @@ function CreateUserForm({
     );
 }
 
-// Edit User Form
+// Edit User Form with Company Assignment
 function EditUserForm({
     user,
     onSubmit,
+    onClose,
     isLoading,
     error
 }: {
     user: AdminUser;
     onSubmit: (data: Partial<AdminUser>) => void;
+    onClose: () => void;
     isLoading: boolean;
     error?: string;
 }) {
+    const queryClient = useQueryClient();
+
     const [formData, setFormData] = useState({
         email: user.email,
         first_name: user.first_name,
@@ -510,6 +533,51 @@ function EditUserForm({
         is_active: user.is_active,
     });
 
+    const [assignedCompanies, setAssignedCompanies] = useState<Company[]>(user.companies);
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+
+    // Fetch all companies for the select
+    const { data: allCompanies } = useQuery({
+        queryKey: ["all-companies"],
+        queryFn: () => api<{ items: Company[] }>("/admin/companies?page_size=100"),
+    });
+
+    // Mutation to update company assignments
+    const assignCompaniesMutation = useMutation({
+        mutationFn: (companyIds: string[]) =>
+            apiPut(`/admin/users/${user.id}/companies`, { company_ids: companyIds }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+        },
+    });
+
+    // Get available companies (not already assigned)
+    const availableCompanies = allCompanies?.items.filter(
+        c => !assignedCompanies.some(ac => ac.id === c.id)
+    ) || [];
+
+    const handleAddCompany = () => {
+        if (!selectedCompanyId) return;
+
+        const companyToAdd = allCompanies?.items.find(c => c.id === selectedCompanyId);
+        if (companyToAdd) {
+            const newAssigned = [...assignedCompanies, companyToAdd];
+            setAssignedCompanies(newAssigned);
+            setSelectedCompanyId("");
+
+            // Update on server
+            assignCompaniesMutation.mutate(newAssigned.map(c => c.id));
+        }
+    };
+
+    const handleRemoveCompany = (companyId: string) => {
+        const newAssigned = assignedCompanies.filter(c => c.id !== companyId);
+        setAssignedCompanies(newAssigned);
+
+        // Update on server
+        assignCompaniesMutation.mutate(newAssigned.map(c => c.id));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onSubmit({
@@ -517,6 +585,8 @@ function EditUserForm({
             organization: formData.organization || undefined,
         });
     };
+
+    const isManager = formData.role === "manager";
 
     return (
         <form onSubmit={handleSubmit}>
@@ -527,6 +597,7 @@ function EditUserForm({
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+                {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit_first_name">Prénom</Label>
@@ -557,20 +628,37 @@ function EditUserForm({
                         required
                     />
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="edit_role">Rôle</Label>
-                    <Select
-                        value={formData.role}
-                        onValueChange={(value: "superadmin" | "manager") => setFormData(prev => ({ ...prev, role: value }))}
-                    >
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="superadmin">Superadmin</SelectItem>
-                        </SelectContent>
-                    </Select>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit_role">Rôle</Label>
+                        <Select
+                            value={formData.role}
+                            onValueChange={(value: "superadmin" | "manager") => setFormData(prev => ({ ...prev, role: value }))}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="manager">Manager</SelectItem>
+                                <SelectItem value="superadmin">Superadmin</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit_status">Statut</Label>
+                        <Select
+                            value={formData.is_active ? "active" : "inactive"}
+                            onValueChange={(value) => setFormData(prev => ({ ...prev, is_active: value === "active" }))}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="active">Actif</SelectItem>
+                                <SelectItem value="inactive">Inactif</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="edit_organization">Organisation</Label>
@@ -580,21 +668,83 @@ function EditUserForm({
                         onChange={(e) => setFormData(prev => ({ ...prev, organization: e.target.value }))}
                     />
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="edit_status">Statut</Label>
-                    <Select
-                        value={formData.is_active ? "active" : "inactive"}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, is_active: value === "active" }))}
-                    >
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="active">Actif</SelectItem>
-                            <SelectItem value="inactive">Inactif</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+
+                {/* Company Assignment Section - Only for Managers */}
+                {isManager && (
+                    <>
+                        <Separator className="my-2" />
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-base font-semibold">Entreprises assignées</Label>
+                                {assignCompaniesMutation.isPending && (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                )}
+                            </div>
+
+                            {/* Assigned Companies List */}
+                            <div className="flex flex-wrap gap-2 min-h-[40px] p-3 border rounded-md bg-muted/30">
+                                {assignedCompanies.length === 0 ? (
+                                    <span className="text-sm text-muted-foreground">Aucune entreprise assignée</span>
+                                ) : (
+                                    assignedCompanies.map((company) => (
+                                        <Badge key={company.id} variant="secondary" className="gap-1 pr-1">
+                                            <Building2 className="h-3 w-3" />
+                                            {company.name} ({company.code})
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground rounded-full"
+                                                onClick={() => handleRemoveCompany(company.id)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </Badge>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Add Company */}
+                            <div className="flex gap-2">
+                                <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                                    <SelectTrigger className="flex-1">
+                                        <SelectValue placeholder="Sélectionner une entreprise..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableCompanies.length === 0 ? (
+                                            <SelectItem value="_none" disabled>Aucune entreprise disponible</SelectItem>
+                                        ) : (
+                                            availableCompanies.map((company) => (
+                                                <SelectItem key={company.id} value={company.id}>
+                                                    {company.name} ({company.code})
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleAddCompany}
+                                    disabled={!selectedCompanyId || assignCompaniesMutation.isPending}
+                                >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Ajouter
+                                </Button>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {!isManager && (
+                    <div className="p-3 bg-muted/30 rounded-md">
+                        <p className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            Les superadmins ont accès à toutes les entreprises
+                        </p>
+                    </div>
+                )}
+
                 {error && (
                     <div className="text-sm text-destructive">{error}</div>
                 )}

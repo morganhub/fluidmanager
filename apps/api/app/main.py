@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
+import os
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,14 @@ from .security import JWTAuthMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="fluidmanager API", version="0.1.0")
+
+# Ensure portrait upload directory exists
+PORTRAIT_DIR = "/tmp/portraits"
+os.makedirs(PORTRAIT_DIR, exist_ok=True)
+
+# Mount static files for portraits
+app.mount("/static/portraits", StaticFiles(directory=PORTRAIT_DIR), name="portraits")
+
 app.add_middleware(JWTAuthMiddleware)
 # CORS middleware (must be added before auth middleware)
 app.add_middleware(
@@ -32,6 +42,15 @@ app.include_router(admin_users_router)
 
 from .admin_companies import router as admin_companies_router
 app.include_router(admin_companies_router)
+
+from .admin_blueprints import router as admin_blueprints_router
+app.include_router(admin_blueprints_router)
+
+from .admin_portraits import router as admin_portraits_router
+app.include_router(admin_portraits_router)
+
+from .org_chart import router as org_chart_router
+app.include_router(org_chart_router)
 
 # =============================================================================
 # Existing Routers

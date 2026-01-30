@@ -3,6 +3,15 @@
         "name": "FluidManager",
         "tagline": "Manage your virtual company"
     },
+    "common": {
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "save": "Save",
+        "delete": "Delete",
+        "edit": "Edit",
+        "confirm": "Confirm",
+        "reset": "Reset"
+    },
     "auth": {
         "login": "Login",
         "logout": "Logout",
@@ -18,6 +27,7 @@
         "settings": "Settings",
         "employees": "Employees",
         "hierarchy": "Org Chart",
+        "organigramme": "Org Chart",
         "integrations": "Integrations",
         "projects": "Projects",
         "tasks": "Tasks",
@@ -133,5 +143,27 @@
         "testWebhook": "Test webhook",
         "createNew": "New integration",
         "noIntegrations": "No integrations"
+    },
+    "orgChart": {
+        "title": "Org Chart",
+        "recruit": "Recruit",
+        "recruiting": "Recruit a profile",
+        "confirmRecruit": "Confirm Recruitment",
+        "searchRole": "Search for a role...",
+        "noProfilesAvailable": "No profiles available for this position",
+        "vacantPosition": "Vacant position",
+        "alreadyHired": "hired",
+        "recruitAction": "Recruit",
+        "editEmployee": "Edit Employee",
+        "removeEmployee": "Remove from company?",
+        "removeConfirmMessage": "will be removed from the org chart. The position will become vacant.",
+        "remove": "Remove",
+        "profileCustomizable": "This profile will be added to your org chart. You can customize their name and bio.",
+        "levels": {
+            "MANAGER": "Manager",
+            "N": "Co-President",
+            "N-1": "Director",
+            "N-2": "Employee"
+        }
     }
 }

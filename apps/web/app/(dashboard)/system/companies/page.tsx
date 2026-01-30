@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, apiDelete, apiPost, apiPut } from "@/lib/api";
-import { useIsSuperadmin } from "@/lib/store";
+import { useIsSuperadmin, useHasHydrated } from "@/lib/store";
 import { createTranslator } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import {
     Plus,
     Search,
@@ -24,11 +25,20 @@ import {
     ChevronRight,
     Loader2,
     Users,
-    Globe
+    Globe,
+    User,
+    X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+
+interface AssignedUser {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+}
 
 interface AdminCompany {
     id: string;
@@ -44,7 +54,15 @@ interface AdminCompany {
     currency: string;
     is_active: boolean;
     created_at: string;
-    assigned_users: { id: string; email: string; first_name: string; last_name: string; role: string }[];
+    assigned_users: AssignedUser[];
+}
+
+interface AdminUser {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: "superadmin" | "manager";
 }
 
 interface AdminCompanyListResponse {
@@ -59,6 +77,7 @@ export default function SystemCompaniesPage() {
     const queryClient = useQueryClient();
     const router = useRouter();
     const isSuperadmin = useIsSuperadmin();
+    const hasHydrated = useHasHydrated();
 
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
@@ -67,12 +86,12 @@ export default function SystemCompaniesPage() {
     const [editCompany, setEditCompany] = useState<AdminCompany | null>(null);
     const [deleteCompany, setDeleteCompany] = useState<AdminCompany | null>(null);
 
-    // Redirect if not superadmin
+    // Redirect if not superadmin after hydration
     useEffect(() => {
-        if (!isSuperadmin) {
+        if (hasHydrated && !isSuperadmin) {
             router.push("/dashboard");
         }
-    }, [isSuperadmin, router]);
+    }, [isSuperadmin, hasHydrated, router]);
 
     // Fetch companies
     const { data, isLoading, error } = useQuery({
@@ -118,7 +137,13 @@ export default function SystemCompaniesPage() {
 
     const totalPages = data ? Math.ceil(data.total / data.page_size) : 1;
 
-    if (!isSuperadmin) return null;
+    if (!hasHydrated || (!isSuperadmin && hasHydrated)) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-fm-blue" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -194,81 +219,91 @@ export default function SystemCompaniesPage() {
                                     <TableHead>Entreprise</TableHead>
                                     <TableHead>Code</TableHead>
                                     <TableHead>Pays</TableHead>
-                                    <TableHead>Utilisateurs assignés</TableHead>
+                                    <TableHead>Managers assignés</TableHead>
                                     <TableHead>Statut</TableHead>
                                     <TableHead className="w-[100px]">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {data.items.map((company) => (
-                                    <TableRow key={company.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-fm-blue/10 to-fm-purple/10 flex items-center justify-center">
-                                                    <Building2 className="h-5 w-5 text-fm-blue" />
+                                {data.items.map((company) => {
+                                    // Filter only managers (not superadmins)
+                                    const managers = company.assigned_users.filter(u => u.role === "manager");
+
+                                    return (
+                                        <TableRow key={company.id}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-fm-blue/10 to-fm-purple/10 flex items-center justify-center">
+                                                        <Building2 className="h-5 w-5 text-fm-blue" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium">{company.name}</p>
+                                                        {company.legal_name && (
+                                                            <p className="text-xs text-muted-foreground">{company.legal_name}</p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-medium">{company.name}</p>
-                                                    {company.legal_name && (
-                                                        <p className="text-xs text-muted-foreground">{company.legal_name}</p>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">{company.code}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <Globe className="h-4 w-4 text-muted-foreground" />
+                                                    {company.country_code}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {managers.length === 0 ? (
+                                                        <span className="text-muted-foreground">Aucun</span>
+                                                    ) : (
+                                                        <>
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                <Users className="mr-1 h-3 w-3" />
+                                                                {managers.length}
+                                                            </Badge>
+                                                            {managers.slice(0, 2).map((u) => (
+                                                                <Badge key={u.id} variant="outline" className="text-xs">
+                                                                    {u.first_name[0]}{u.last_name[0]}
+                                                                </Badge>
+                                                            ))}
+                                                            {managers.length > 2 && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    +{managers.length - 2}
+                                                                </Badge>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{company.code}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Globe className="h-4 w-4 text-muted-foreground" />
-                                                {company.country_code}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {company.assigned_users.length === 0 ? (
-                                                    <span className="text-muted-foreground">Aucun</span>
-                                                ) : (
-                                                    <>
-                                                        <Badge variant="secondary" className="text-xs">
-                                                            <Users className="mr-1 h-3 w-3" />
-                                                            {company.assigned_users.length}
-                                                        </Badge>
-                                                        {company.assigned_users.slice(0, 2).map((u) => (
-                                                            <Badge key={u.id} variant="outline" className="text-xs">
-                                                                {u.first_name[0]}{u.last_name[0]}
-                                                            </Badge>
-                                                        ))}
-                                                    </>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={company.is_active ? "default" : "secondary"}>
-                                                {company.is_active ? "Actif" : "Inactif"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => setEditCompany(company)}
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => setDeleteCompany(company)}
-                                                    className="text-destructive hover:text-destructive"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={company.is_active ? "default" : "secondary"}>
+                                                    {company.is_active ? "Actif" : "Inactif"}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => setEditCompany(company)}
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => setDeleteCompany(company)}
+                                                        className="text-destructive hover:text-destructive"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     )}
@@ -307,11 +342,12 @@ export default function SystemCompaniesPage() {
 
             {/* Edit Dialog */}
             <Dialog open={!!editCompany} onOpenChange={(open) => !open && setEditCompany(null)}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     {editCompany && (
                         <EditCompanyForm
                             company={editCompany}
                             onSubmit={(data) => updateMutation.mutate({ id: editCompany.id, data })}
+                            onClose={() => setEditCompany(null)}
                             isLoading={updateMutation.isPending}
                             error={updateMutation.error?.message}
                         />
@@ -474,18 +510,22 @@ function CreateCompanyForm({
     );
 }
 
-// Edit Company Form
+// Edit Company Form with Manager Assignment
 function EditCompanyForm({
     company,
     onSubmit,
+    onClose,
     isLoading,
     error
 }: {
     company: AdminCompany;
     onSubmit: (data: Partial<AdminCompany>) => void;
+    onClose: () => void;
     isLoading: boolean;
     error?: string;
 }) {
+    const queryClient = useQueryClient();
+
     const [formData, setFormData] = useState({
         code: company.code,
         name: company.name,
@@ -495,6 +535,60 @@ function EditCompanyForm({
         siret: company.siret || "",
         is_active: company.is_active,
     });
+
+    // Only managers (not superadmins)
+    const [assignedManagers, setAssignedManagers] = useState<AssignedUser[]>(
+        company.assigned_users.filter(u => u.role === "manager")
+    );
+    const [selectedUserId, setSelectedUserId] = useState<string>("");
+
+    // Fetch all managers (exclude superadmins)
+    const { data: allUsers } = useQuery({
+        queryKey: ["all-managers"],
+        queryFn: async () => {
+            const response = await api<{ items: AdminUser[] }>("/admin/users?page_size=100");
+            // Filter only managers
+            return {
+                items: response.items.filter(u => u.role === "manager")
+            };
+        },
+    });
+
+    // Mutation to update user assignments
+    const assignUsersMutation = useMutation({
+        mutationFn: (userIds: string[]) =>
+            apiPut(`/admin/companies/${company.id}/users`, { user_ids: userIds }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
+        },
+    });
+
+    // Get available managers (not already assigned)
+    const availableManagers = allUsers?.items.filter(
+        u => !assignedManagers.some(am => am.id === u.id)
+    ) || [];
+
+    const handleAddManager = () => {
+        if (!selectedUserId) return;
+
+        const userToAdd = allUsers?.items.find(u => u.id === selectedUserId);
+        if (userToAdd) {
+            const newAssigned = [...assignedManagers, { ...userToAdd, role: "manager" }];
+            setAssignedManagers(newAssigned);
+            setSelectedUserId("");
+
+            // Update on server
+            assignUsersMutation.mutate(newAssigned.map(u => u.id));
+        }
+    };
+
+    const handleRemoveManager = (userId: string) => {
+        const newAssigned = assignedManagers.filter(u => u.id !== userId);
+        setAssignedManagers(newAssigned);
+
+        // Update on server
+        assignUsersMutation.mutate(newAssigned.map(u => u.id));
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -518,6 +612,7 @@ function EditCompanyForm({
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+                {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit_code">Code</Label>
@@ -599,6 +694,74 @@ function EditCompanyForm({
                         </SelectContent>
                     </Select>
                 </div>
+
+                {/* Manager Assignment Section */}
+                <Separator className="my-2" />
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-base font-semibold">Managers assignés</Label>
+                        {assignUsersMutation.isPending && (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                        Les superadmins ont automatiquement accès à cette entreprise.
+                    </p>
+
+                    {/* Assigned Managers List */}
+                    <div className="flex flex-wrap gap-2 min-h-[40px] p-3 border rounded-md bg-muted/30">
+                        {assignedManagers.length === 0 ? (
+                            <span className="text-sm text-muted-foreground">Aucun manager assigné</span>
+                        ) : (
+                            assignedManagers.map((manager) => (
+                                <Badge key={manager.id} variant="secondary" className="gap-1 pr-1">
+                                    <User className="h-3 w-3" />
+                                    {manager.first_name} {manager.last_name}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground rounded-full"
+                                        onClick={() => handleRemoveManager(manager.id)}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </Badge>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Add Manager */}
+                    <div className="flex gap-2">
+                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                            <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Sélectionner un manager..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableManagers.length === 0 ? (
+                                    <SelectItem value="_none" disabled>Aucun manager disponible</SelectItem>
+                                ) : (
+                                    availableManagers.map((manager) => (
+                                        <SelectItem key={manager.id} value={manager.id}>
+                                            {manager.first_name} {manager.last_name} ({manager.email})
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleAddManager}
+                            disabled={!selectedUserId || assignUsersMutation.isPending}
+                        >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Ajouter
+                        </Button>
+                    </div>
+                </div>
+
                 {error && (
                     <div className="text-sm text-destructive">{error}</div>
                 )}

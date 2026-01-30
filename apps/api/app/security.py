@@ -59,6 +59,11 @@ class JWTAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # Static files (portraits, etc.) - no auth required
+        if path.startswith("/static/"):
+            await self.app(scope, receive, send)
+            return
+
         # 4. Validate JWT Bearer token
         headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
         auth_header = headers.get("authorization", "")

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAppStore, useAuthStore, useIsSuperadmin } from "@/lib/store";
 import { createTranslator } from "@/lib/i18n";
@@ -26,6 +27,8 @@ import {
     LogOut,
     Shield,
     UserCog,
+    Layers,
+    GitBranch,
 } from "lucide-react";
 import { logout as apiLogout } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -59,8 +62,7 @@ export function Sidebar() {
             children: currentCompanyCode
                 ? [
                     { href: `${companyBase}/settings`, label: t("nav.settings"), icon: Settings },
-                    { href: `${companyBase}/employees`, label: t("nav.employees"), icon: Users },
-                    { href: `${companyBase}/hierarchy`, label: t("nav.hierarchy"), icon: Network },
+                    { href: `${companyBase}/organigramme`, label: t("nav.organigramme"), icon: GitBranch },
                     { href: `${companyBase}/integrations`, label: t("nav.integrations"), icon: Plug },
                 ]
                 : [],
@@ -87,6 +89,7 @@ export function Sidebar() {
             children: [
                 { href: "/system/users", label: t("nav.users"), icon: UserCog },
                 { href: "/system/companies", label: t("nav.companiesAdmin"), icon: Building2 },
+                { href: "/system/blueprints", label: t("nav.blueprints"), icon: Layers },
             ],
         },
     ];
@@ -111,12 +114,38 @@ export function Sidebar() {
             {/* Header */}
             <div className="flex h-16 items-center justify-between px-4 border-b border-border">
                 {!sidebarCollapsed && (
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-fm-blue to-fm-purple flex items-center justify-center">
-                            <span className="text-sm font-bold text-white">FM</span>
-                        </div>
-                        <span className="font-semibold">{t("app.name")}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                        {currentCompanyCode ? (
+                            // Show company branding when a company is selected
+                            <>
+                                <Image
+                                    src="/icon.svg"
+                                    alt=""
+                                    width={28}
+                                    height={28}
+                                    className="shrink-0"
+                                />
+                                <span className="font-semibold truncate">{currentCompanyCode}</span>
+                            </>
+                        ) : (
+                            // Default FluidManager branding
+                            <>
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-fm-blue to-fm-purple flex items-center justify-center shrink-0">
+                                    <span className="text-sm font-bold text-white">FM</span>
+                                </div>
+                                <span className="font-semibold">{t("app.name")}</span>
+                            </>
+                        )}
                     </div>
+                )}
+                {sidebarCollapsed && currentCompanyCode && (
+                    <Image
+                        src="/icon.svg"
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="mx-auto"
+                    />
                 )}
                 <Button
                     variant="ghost"
