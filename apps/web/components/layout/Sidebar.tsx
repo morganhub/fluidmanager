@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, useAuthStore, useIsSuperadmin } from "@/lib/store";
 import { createTranslator } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,10 @@ import {
     ChevronLeft,
     ChevronRight,
     LogOut,
+    Shield,
+    UserCog,
 } from "lucide-react";
-import { clearApiKey } from "@/lib/api";
+import { logout as apiLogout } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
 interface NavItem {
@@ -33,6 +35,7 @@ interface NavItem {
     label: string;
     icon: React.ElementType;
     children?: NavItem[];
+    superadminOnly?: boolean;
 }
 
 export function Sidebar() {
@@ -40,6 +43,9 @@ export function Sidebar() {
     const router = useRouter();
     const t = createTranslator("fr");
     const { sidebarCollapsed, toggleSidebar, currentCompanyCode, currentProjectCode } = useAppStore();
+    const authLogout = useAuthStore((state) => state.logout);
+    const user = useAuthStore((state) => state.user);
+    const isSuperadmin = useIsSuperadmin();
 
     const companyBase = currentCompanyCode ? `/companies/${currentCompanyCode}` : "";
     const projectBase = currentProjectCode ? `${companyBase}/projects/${currentProjectCode}` : "";
@@ -72,12 +78,28 @@ export function Sidebar() {
                 ]
                 : [],
         },
+        // System menu - superadmin only
+        {
+            href: "/system",
+            label: t("nav.system"),
+            icon: Shield,
+            superadminOnly: true,
+            children: [
+                { href: "/system/users", label: t("nav.users"), icon: UserCog },
+                { href: "/system/companies", label: t("nav.companiesAdmin"), icon: Building2 },
+            ],
+        },
     ];
 
+    // Filter menu items based on role
+    const filteredNavItems = navItems.filter(item => !item.superadminOnly || isSuperadmin);
+
     function handleLogout() {
-        clearApiKey();
+        apiLogout();
+        authLogout();
         router.push("/login");
     }
+
 
     return (
         <div
@@ -109,7 +131,7 @@ export function Sidebar() {
             {/* Navigation */}
             <ScrollArea className="h-[calc(100vh-8rem)]">
                 <nav className="p-2 space-y-1">
-                    {navItems.map((item) => (
+                    {filteredNavItems.map((item) => (
                         <div key={item.href}>
                             <NavLink
                                 item={item}

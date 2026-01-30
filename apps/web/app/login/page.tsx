@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { setApiKey, apiGet, type Company, type ListResponse } from "@/lib/api";
+import { login } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { createTranslator } from "@/lib/i18n";
+import { Loader2, Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
     const t = createTranslator("fr");
     const router = useRouter();
-    const setAuthenticated = useAuthStore((state) => state.setAuthenticated);
+    const authLogin = useAuthStore((state) => state.login);
 
-    const [apiKeyInput, setApiKeyInput] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -25,18 +28,26 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // Store the API key temporarily
-            setApiKey(apiKeyInput);
+            const response = await login(email, password);
 
-            // Verify by fetching companies
-            await apiGet<ListResponse<Company>>("/companies");
+            // Update auth store
+            authLogin(response.user);
 
-            // Success - mark as authenticated and redirect
-            setAuthenticated(true);
+            // Redirect to dashboard
             router.push("/dashboard");
-        } catch (err) {
-            setError(t("auth.invalidKey"));
-            setApiKey(""); // Clear invalid key
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Une erreur est survenue";
+
+            // Handle specific error cases
+            if (message.includes("expired")) {
+                setError("Votre compte a expiré. Contactez un administrateur.");
+            } else if (message.includes("deactivated")) {
+                setError("Votre compte est désactivé. Contactez un administrateur.");
+            } else if (message.includes("Invalid email or password")) {
+                setError("Email ou mot de passe incorrect");
+            } else {
+                setError(message);
+            }
         } finally {
             setLoading(false);
         }
@@ -66,34 +77,78 @@ export default function LoginPage() {
 
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Email field */}
                         <div className="space-y-2">
-                            <Label htmlFor="apiKey" className="text-slate-300">
-                                {t("auth.apiKey")}
+                            <Label htmlFor="email" className="text-slate-300">
+                                Email
                             </Label>
-                            <Input
-                                id="apiKey"
-                                type="password"
-                                placeholder={t("auth.apiKeyPlaceholder")}
-                                value={apiKeyInput}
-                                onChange={(e) => setApiKeyInput(e.target.value)}
-                                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-fm-blue"
-                                required
-                            />
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="votre@email.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-fm-blue"
+                                    required
+                                    autoComplete="email"
+                                />
+                            </div>
                         </div>
 
+                        {/* Password field */}
+                        <div className="space-y-2">
+                            <Label htmlFor="password" className="text-slate-300">
+                                Mot de passe
+                            </Label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-fm-blue"
+                                    required
+                                    autoComplete="current-password"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Error message */}
                         {error && (
                             <div className="text-sm text-red-400 bg-red-950/50 px-3 py-2 rounded-md">
                                 {error}
                             </div>
                         )}
 
+                        {/* Submit button */}
                         <Button
                             type="submit"
                             className="w-full bg-gradient-to-r from-fm-blue to-fm-purple hover:opacity-90"
-                            disabled={loading || !apiKeyInput}
+                            disabled={loading || !email || !password}
                         >
-                            {loading ? t("common.loading") : t("auth.submit")}
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Connexion...
+                                </>
+                            ) : (
+                                "Se connecter"
+                            )}
                         </Button>
+
+                        {/* Forgot password link */}
+                        <div className="text-center">
+                            <Link
+                                href="/forgot-password"
+                                className="text-sm text-slate-400 hover:text-fm-blue transition-colors"
+                            >
+                                Mot de passe oublié ?
+                            </Link>
+                        </div>
                     </form>
                 </CardContent>
             </Card>

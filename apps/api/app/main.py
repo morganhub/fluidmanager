@@ -4,11 +4,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_db
 from .settings import settings
-from .security import ApiKeyASGIMiddleware
+from .security import JWTAuthMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="fluidmanager API", version="0.1.0")
-app.add_middleware(ApiKeyASGIMiddleware, api_key=settings.API_ADMIN_KEY, public_paths={"/health"})
 
+# CORS middleware (must be added before auth middleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# JWT Authentication middleware
+app.add_middleware(JWTAuthMiddleware)
+
+# =============================================================================
+# Auth & Admin Routers
+# =============================================================================
+from .auth import router as auth_router
+app.include_router(auth_router)
+
+from .admin_users import router as admin_users_router
+app.include_router(admin_users_router)
+
+from .admin_companies import router as admin_companies_router
+app.include_router(admin_companies_router)
+
+# =============================================================================
+# Existing Routers
+# =============================================================================
 from .previews import router as previews_router
 app.include_router(previews_router)
 
@@ -38,6 +65,7 @@ app.include_router(tasks_dependencies_router)
 
 from .tasks_callback import router as tasks_callback_router
 app.include_router(tasks_callback_router)
+
 
 
 @app.get("/health")

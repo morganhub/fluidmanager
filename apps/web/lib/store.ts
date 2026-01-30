@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { AuthUser } from "./api";
 
 /**
  * App Store - Global state management
@@ -37,7 +38,11 @@ export type DrawerContent =
     | { type: "create-task"; projectId?: string }
     | { type: "create-employee" }
     | { type: "create-integration" }
-    | { type: "create-meeting"; projectId?: string };
+    | { type: "create-meeting"; projectId?: string }
+    | { type: "create-user" }
+    | { type: "edit-user"; userId: string }
+    | { type: "create-company" }
+    | { type: "edit-company"; companyId: string };
 
 export const useAppStore = create<AppState>()(
     persist(
@@ -82,14 +87,68 @@ export const useAppStore = create<AppState>()(
 );
 
 /**
- * Auth Store - Separate for security
+ * Auth Store - User authentication state
  */
 interface AuthState {
     isAuthenticated: boolean;
+    user: AuthUser | null;
+    allowedCompanies: string[];  // Company IDs user can access
+
+    // Actions
     setAuthenticated: (value: boolean) => void;
+    setUser: (user: AuthUser | null) => void;
+    setAllowedCompanies: (companies: string[]) => void;
+    login: (user: AuthUser) => void;
+    logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-    isAuthenticated: false,
-    setAuthenticated: (value) => set({ isAuthenticated: value }),
-}));
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set) => ({
+            isAuthenticated: false,
+            user: null,
+            allowedCompanies: [],
+
+            setAuthenticated: (value) => set({ isAuthenticated: value }),
+
+            setUser: (user) => set({ user }),
+
+            setAllowedCompanies: (companies) => set({ allowedCompanies: companies }),
+
+            login: (user) => set({
+                isAuthenticated: true,
+                user,
+                allowedCompanies: user.companies,
+            }),
+
+            logout: () => set({
+                isAuthenticated: false,
+                user: null,
+                allowedCompanies: [],
+            }),
+        }),
+        {
+            name: "fm-auth-store",
+            partialize: (state) => ({
+                isAuthenticated: state.isAuthenticated,
+                user: state.user,
+                allowedCompanies: state.allowedCompanies,
+            }),
+        }
+    )
+);
+
+/**
+ * Hook to check if current user is superadmin
+ */
+export function useIsSuperadmin(): boolean {
+    const user = useAuthStore((state) => state.user);
+    return user?.role === "superadmin";
+}
+
+/**
+ * Hook to get current user
+ */
+export function useUser(): AuthUser | null {
+    return useAuthStore((state) => state.user);
+}

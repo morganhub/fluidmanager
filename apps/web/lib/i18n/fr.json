@@ -24,7 +24,10 @@
         "files": "Fichiers",
         "meetings": "Réunions",
         "activity": "Activité",
-        "admin": "Administration"
+        "admin": "Administration",
+        "system": "Système",
+        "users": "Utilisateurs",
+        "companiesAdmin": "Gestion entreprises"
     },
     "common": {
         "create": "Créer",

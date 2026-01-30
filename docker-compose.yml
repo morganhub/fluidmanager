@@ -77,6 +77,8 @@ services:
   web:
     build:
       context: ./apps/web
+      args:
+        - NEXT_PUBLIC_API_URL=https://api.manager.fluidifia.com
     container_name: fluidmanager-web
     restart: unless-stopped
     env_file:
