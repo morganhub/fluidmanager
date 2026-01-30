@@ -8,7 +8,7 @@ from .security import JWTAuthMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="fluidmanager API", version="0.1.0")
-
+app.add_middleware(JWTAuthMiddleware)
 # CORS middleware (must be added before auth middleware)
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +19,7 @@ app.add_middleware(
 )
 
 # JWT Authentication middleware
-app.add_middleware(JWTAuthMiddleware)
+
 
 # =============================================================================
 # Auth & Admin Routers
